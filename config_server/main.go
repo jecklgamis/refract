@@ -9,6 +9,7 @@ package main
 
 import (
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -122,6 +123,37 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+const (
+	appName     = "refract-config-server"
+	appMessage  = "Relax, perf test it"
+	rootPattern = "/"
+)
+
+// handleRoot answers GET/HEAD / with a small JSON banner. It is not gated
+// (checkAuth only guards /config/) and exposes nothing but the app name.
+// A "/" ServeMux pattern matches every path nothing else claims, so
+// anything other than exactly "/" is still a 404 here, same as before.
+func handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != rootPattern {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := json.Marshal(struct {
+		App     string `json:"app"`
+		Message string `json:"message"`
+	}{appName, appMessage})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(body)
+}
+
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprint(w, `{"status":"ok"}`)
@@ -142,6 +174,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc(rootPattern, handleRoot)
 	mux.HandleFunc("/config/", handleConfig)
 	mux.HandleFunc("/healthz", handleHealthz)
 

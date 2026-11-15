@@ -13,6 +13,10 @@ control plane. Three independent Go modules live in this repo:
   endpoint.
 - `config_server/` - a small standalone HTTP service that stores
   uploaded CDS/LDS/runtime config (the `http` distribution mode).
+  Endpoints: `GET /` (unauthenticated JSON banner,
+  `{"app":"refract-config-server","message":"Relax, perf test it"}`),
+  `GET /healthz` (unauthenticated), and `GET`/`POST /config/<file>`
+  (bearer token). Anything else is a 404.
 - `fetcher/` - a Go binary that runs *inside* the Envoy container
   (via `supervisor.ini`), polling the config server or S3 and writing
   `cds.yaml`/`lds.yaml`/`runtime.yaml` into `/etc/envoy/dynamic`.
@@ -45,8 +49,10 @@ one). Bare `make` in `config_server/` builds
 that component's image by default, and bare `make` in `refractctl/` builds the
 binary (neither is a help/usage printout).
 
-**Test** (refractctl only - the other three modules have no test files):
+**Test** (refractctl has the bulk of the tests; `config_server` has a few for its
+endpoints, `fetcher/` and `app/` have none):
 ```bash
+cd config_server && go test ./...           # config_server's endpoint tests
 cd refractctl && go test ./...              # all packages
 go test ./... -run TestName                 # single test, from refractctl/
 go test ./... -cover                        # with coverage
