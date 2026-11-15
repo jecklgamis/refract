@@ -6,11 +6,11 @@ admin:
       port_value: 9901
 
 node:
-  cluster: envoy-perf-gateway
+  cluster: refract
   id: local
 
 # Two runtime layers, applied in order (later overrides earlier):
-#   1. disk  - the persisted baseline. `gatewayctl fault abort|delay` write
+#   1. disk  - the persisted baseline. `refractctl fault abort|delay` write
 #      key files here via the same config_server/S3 -> fetcher -> inotify
 #      pipeline used for cds.yaml/lds.yaml, so every replica of the gateway
 #      converges on the same fault state, and it survives restarts.
@@ -36,7 +36,7 @@ layered_runtime:
 
 # Clusters (CDS) and listeners (LDS) are loaded dynamically from files that
 # Envoy watches via inotify (see watched_directory). This is NOT xDS over
-# gRPC/REST - there is no control-plane process. `gatewayctl` renders
+# gRPC/REST - there is no control-plane process. `refractctl` renders
 # rendered/cds.yaml and rendered/lds.yaml from values.yaml and distributes
 # them (HTTP or S3); the fetcher binary atomically swaps them in here;
 # Envoy picks up the change and hot-reloads with no restart and no dropped

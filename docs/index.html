@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>envoy-perf-gateway — User Guide</title>
-<meta name="description" content="User guide for envoy-perf-gateway: Envoy as a front door for perf and chaos testing.">
+<title>refract — User Guide</title>
+<meta name="description" content="User guide for refract: Envoy as a front door for perf and chaos testing.">
 <style>
   :root {
     --bg: #ffffff;
@@ -325,9 +325,9 @@
 <body>
 <div class="layout">
   <aside class="sidebar" id="sidebar">
-    <div class="brand"><span class="dot"></span> envoy-perf-gateway</div>
+    <div class="brand"><span class="dot"></span> refract</div>
     <div class="tagline">User Guide</div>
-    <div class="tagline"><a href="https://github.com/jecklgamis/envoy-perf-gateway">View on GitHub &rarr;</a></div>
+    <div class="tagline"><a href="https://github.com/jecklgamis/refract">View on GitHub &rarr;</a></div>
     <button class="mobile-toggle" id="navToggle" type="button">Menu ▾</button>
     <nav id="navList">
       <h3>Getting Started</h3>
@@ -362,7 +362,7 @@
   <main class="content">
 
     <section id="overview">
-      <h1>envoy-perf-gateway</h1>
+      <h1>refract</h1>
       <p class="lede">Envoy as a front door for perf and chaos testing. Add and remove backends through a CLI, and toggle fault injection at runtime, with no restarts and no full xDS control plane.</p>
 
       <div class="grid-cards">
@@ -380,7 +380,7 @@
         </div>
         <div class="card">
           <h4>One CLI for the workflow</h4>
-          <p><code>gatewayctl</code> adds/removes backends, pushes config, and drives fault injection — no hand-edited YAML.</p>
+          <p><code>refractctl</code> adds/removes backends, pushes config, and drives fault injection — no hand-edited YAML.</p>
         </div>
         <div class="card">
           <h4>Pluggable config source</h4>
@@ -395,56 +395,56 @@
 
     <section id="quickstart">
       <h2>Quickstart</h2>
-      <p>Uses the published Docker images and a pre-built <code>gatewayctl</code> binary — nothing to build.</p>
+      <p>Uses the published Docker images and a pre-built <code>refractctl</code> binary — nothing to build.</p>
 
       <div class="step">
         <h4><span class="num">1</span> Start the gateway</h4>
         <p>In its own terminal. This works even if the config server isn't up yet — it serves a built-in default configuration meanwhile.</p>
 <pre><code><span class="cmt"># pulls the published image and runs it, pointed at a local config server</span>
-docker pull jecklgamis/envoy-perf-gateway:latest
-docker rm -f envoy-perf-gateway 2&gt;/dev/null
-docker run --name envoy-perf-gateway -p 8080:8080 -p 9901:9901 \
+docker pull jecklgamis/refract:latest
+docker rm -f refract 2&gt;/dev/null
+docker run --name refract -p 8080:8080 -p 9901:9901 \
   -e CONFIG_SOURCE_KIND=http \
   -e CONFIG_SOURCE_URL=http://host.docker.internal:8090 \
   -e CONFIG_API_TOKEN=default \
-  jecklgamis/envoy-perf-gateway:latest</code></pre>
+  jecklgamis/refract:latest</code></pre>
       </div>
 
       <div class="step">
         <h4><span class="num">2</span> Start the config server</h4>
         <p>In a separate terminal.</p>
-<pre><code>docker pull jecklgamis/envoy-perf-gateway-config-server:latest
-docker rm -f envoy-perf-gateway-config-server 2&gt;/dev/null
-docker run --name envoy-perf-gateway-config-server -p 8090:8090 \
+<pre><code>docker pull jecklgamis/refract-config-server:latest
+docker rm -f refract-config-server 2&gt;/dev/null
+docker run --name refract-config-server -p 8090:8090 \
   -e API_TOKEN=default \
-  jecklgamis/envoy-perf-gateway-config-server:latest</code></pre>
+  jecklgamis/refract-config-server:latest</code></pre>
       </div>
 
       <div class="step">
-        <h4><span class="num">3</span> Get <code>gatewayctl</code></h4>
-        <p>Download a pre-built binary for your platform from the <a href="https://github.com/jecklgamis/envoy-perf-gateway/releases">releases page</a>, or install it with Go.</p>
+        <h4><span class="num">3</span> Get <code>refractctl</code></h4>
+        <p>Download a pre-built binary for your platform from the <a href="https://github.com/jecklgamis/refract/releases">releases page</a>, or install it with Go.</p>
 <pre><code><span class="cmt"># pick your platform</span>
-curl -L -o gatewayctl https://github.com/jecklgamis/envoy-perf-gateway/releases/latest/download/gatewayctl-darwin-arm64
-chmod +x gatewayctl
+curl -L -o refractctl https://github.com/jecklgamis/refract/releases/latest/download/refractctl-darwin-arm64
+chmod +x refractctl
 
 <span class="cmt"># or</span>
-go install github.com/jecklgamis/envoy-perf-gateway/gatewayctl@latest</code></pre>
-        <p>Other platforms: <code>gatewayctl-darwin-amd64</code>, <code>gatewayctl-linux-amd64</code>, <code>gatewayctl-linux-arm64</code>.</p>
+go install github.com/jecklgamis/refract/refractctl@latest</code></pre>
+        <p>Other platforms: <code>refractctl-darwin-amd64</code>, <code>refractctl-linux-amd64</code>, <code>refractctl-linux-arm64</code>.</p>
       </div>
 
       <div class="step">
         <h4><span class="num">4</span> Point the CLI at the config server</h4>
-        <p>Saved to <code>~/.config/gatewayctl/config.yaml</code>, so <code>add-backend</code>/<code>remove-backend</code>/<code>fault</code> push automatically from here on.</p>
-<pre><code>./gatewayctl config set mode http
-./gatewayctl config set http.server-url http://localhost:8090
-./gatewayctl config set http.api-token default</code></pre>
-        <div class="note"><code>gatewayctl config get</code> (no key) and the confirmation line above both mask the token as <code>********</code> - it's the kind of output that ends up pasted into a chat or a screenshot. To see the real value, ask for it by name: <code>gatewayctl config get http.api-token</code>.</div>
+        <p>Saved to <code>~/.config/refractctl/config.yaml</code>, so <code>add-backend</code>/<code>remove-backend</code>/<code>fault</code> push automatically from here on.</p>
+<pre><code>./refractctl config set mode http
+./refractctl config set http.server-url http://localhost:8090
+./refractctl config set http.api-token default</code></pre>
+        <div class="note"><code>refractctl config get</code> (no key) and the confirmation line above both mask the token as <code>********</code> - it's the kind of output that ends up pasted into a chat or a screenshot. To see the real value, ask for it by name: <code>refractctl config get http.api-token</code>.</div>
       </div>
 
       <div class="step">
         <h4><span class="num">5</span> Add a backend</h4>
         <p>No gateway restart required.</p>
-<pre><code>./gatewayctl add-backend --name httpbin --host httpbin.org --port 443 --tls --route-prefix /httpbin/
+<pre><code>./refractctl add-backend --name httpbin --host httpbin.org --port 443 --tls --route-prefix /httpbin/
 
 curl http://localhost:8080/httpbin/get</code></pre>
       </div>
@@ -452,58 +452,58 @@ curl http://localhost:8080/httpbin/get</code></pre>
       <div class="step">
         <h4><span class="num">6</span> Try fault injection</h4>
         <p>Scoped to just the <code>httpbin</code> backend. This pushes through the config pipeline like a backend change, so allow up to <code>CONFIG_POLL_INTERVAL_SECONDS</code> (15s by default) for the gateway to pick it up.</p>
-<pre><code>./gatewayctl fault abort --target httpbin --percent 100 --status 503
+<pre><code>./refractctl fault abort --target httpbin --percent 100 --status 503
 curl http://localhost:8080/httpbin/get     <span class="cmt"># returns 503 within ~15s</span>
 curl http://localhost:8080/                <span class="cmt"># unaffected - still default_app</span>
 
-./gatewayctl fault delay --target httpbin --percent 100 --duration-ms 2000
+./refractctl fault delay --target httpbin --percent 100 --duration-ms 2000
 curl http://localhost:8080/httpbin/get     <span class="cmt"># now takes ~2s</span>
 
-./gatewayctl fault reset --target httpbin
+./refractctl fault reset --target httpbin
 curl http://localhost:8080/httpbin/get     <span class="cmt"># back to normal</span></code></pre>
       </div>
     </section>
 
     <section id="installing-cli">
       <h2>Installing the CLI</h2>
-      <p><code>gatewayctl</code> is a self-contained, statically-linked Go binary — no runtime dependency. Two ways to get it:</p>
+      <p><code>refractctl</code> is a self-contained, statically-linked Go binary — no runtime dependency. Two ways to get it:</p>
       <ul>
-        <li>Download a pre-built binary from the <a href="https://github.com/jecklgamis/envoy-perf-gateway/releases">releases page</a> for your platform.</li>
-        <li>Install with Go: <code>go install github.com/jecklgamis/envoy-perf-gateway/gatewayctl@latest</code></li>
+        <li>Download a pre-built binary from the <a href="https://github.com/jecklgamis/refract/releases">releases page</a> for your platform.</li>
+        <li>Install with Go: <code>go install github.com/jecklgamis/refract/refractctl@latest</code></li>
       </ul>
     </section>
 
     <section id="managing-backends">
       <h2>Managing Backends</h2>
-      <p><code>gatewayctl list-backends</code> and <code>gatewayctl remove-backend --name &lt;name&gt;</code> round out <code>add-backend</code>:</p>
-<pre><code>gatewayctl list-backends
+      <p><code>refractctl list-backends</code> and <code>refractctl remove-backend --name &lt;name&gt;</code> round out <code>add-backend</code>:</p>
+<pre><code>refractctl list-backends
 <span class="cmt"># httpbin              httpbin.org:443  tls        /httpbin/
 # svc-a                svc-a.internal:8080  plaintext  frontend-a.test.local</span>
 
-gatewayctl remove-backend --name httpbin</code></pre>
+refractctl remove-backend --name httpbin</code></pre>
       <p><code>list-backends</code> prints the name, upstream host:port, TLS mode, and resolved route for each backend (or <code>(no route, cluster only)</code> if none is configured). <code>remove-backend</code> removes the backend's cluster and route, then pushes the updated configuration, the same way <code>add-backend</code> does.</p>
 
       <div class="note">Backend names (<code>--name</code>) are restricted to letters, digits, <code>-</code>, and <code>_</code>. This isn't arbitrary — the name becomes part of an Envoy runtime key that gets turned into a filesystem path on the gateway, so it's validated up front. Numeric flags are validated too, before anything is saved or pushed: <code>--port</code> must be 1-65535, <code>--percent</code> (fault commands) must be 0-100, <code>--status</code> must be a real HTTP status code (100-599), <code>--duration-ms</code> can't be negative, and <code>--connect-timeout</code>/<code>--timeout</code> must be a valid, positive duration string (e.g. <code>500ms</code>, <code>5s</code>).</div>
 
-      <div class="warn"><code>add-backend</code> refuses to run if local <code>values.yaml</code> doesn't exist yet but a mode is configured, unless you pass <code>--force</code>. This guards the wrong-directory/wrong-machine trap: a missing file looks identical to a legitimate first backend, but pushing it would silently overwrite a remote config that already has other backends on it with just this one. Run <code>gatewayctl list-backends --remote</code> first to check what's actually live, or pass <code>--force</code> if it's genuinely a fresh deployment. <code>remove-backend</code> doesn't need this - it always fails safely on a missing file, since "no backend named X" is caught before anything is ever saved or pushed.</div>
+      <div class="warn"><code>add-backend</code> refuses to run if local <code>values.yaml</code> doesn't exist yet but a mode is configured, unless you pass <code>--force</code>. This guards the wrong-directory/wrong-machine trap: a missing file looks identical to a legitimate first backend, but pushing it would silently overwrite a remote config that already has other backends on it with just this one. Run <code>refractctl list-backends --remote</code> first to check what's actually live, or pass <code>--force</code> if it's genuinely a fresh deployment. <code>remove-backend</code> doesn't need this - it always fails safely on a missing file, since "no backend named X" is caught before anything is ever saved or pushed.</div>
 
       <h3>Checking the ground truth</h3>
-      <p><code>list-backends</code> only ever reads local <code>values.yaml</code> by default — it never talks to the network. If a push failed silently, or you're running <code>gatewayctl</code> from a different machine or directory than whoever last pushed, local <code>values.yaml</code> can drift from what's actually live. Add <code>--remote</code> to fetch the config server's (or S3's) current <code>cds.yaml</code>/<code>lds.yaml</code> and print the same table, reconstructed from what's actually live instead of local state:</p>
-<pre><code>gatewayctl list-backends --remote
+      <p><code>list-backends</code> only ever reads local <code>values.yaml</code> by default — it never talks to the network. If a push failed silently, or you're running <code>refractctl</code> from a different machine or directory than whoever last pushed, local <code>values.yaml</code> can drift from what's actually live. Add <code>--remote</code> to fetch the config server's (or S3's) current <code>cds.yaml</code>/<code>lds.yaml</code> and print the same table, reconstructed from what's actually live instead of local state:</p>
+<pre><code>refractctl list-backends --remote
 <span class="cmt"># httpbin              httpbin.org:443  tls        /httpbin/
 # serverprobes         www.serverprobes.com:443  tls        /serverprobes/</span></code></pre>
-      <p>For the raw underlying files instead of the summarized table, <code>gatewayctl fetch</code> downloads <code>cds.yaml</code>, <code>lds.yaml</code>, and <code>runtime.yaml</code> - the same files the in-container fetcher polls - into <code>--rendered-dir</code>:</p>
-<pre><code>gatewayctl fetch
+      <p>For the raw underlying files instead of the summarized table, <code>refractctl fetch</code> downloads <code>cds.yaml</code>, <code>lds.yaml</code>, and <code>runtime.yaml</code> - the same files the in-container fetcher polls - into <code>--rendered-dir</code>:</p>
+<pre><code>refractctl fetch
 <span class="cmt"># Fetched cds.yaml -> rendered/cds.yaml (3098 bytes)
 # Fetched lds.yaml -> rendered/lds.yaml (7802 bytes)
 # Fetched runtime.yaml -> rendered/runtime.yaml (3 bytes)</span>
 
 cat rendered/cds.yaml   <span class="cmt"># every live cluster, straight from the source</span></code></pre>
-      <p>Both use whichever mode is configured (<code>gatewayctl config set mode http|s3</code>, or <code>CONFIG_SOURCE_KIND</code>), the same way <code>push-http</code>/<code>push-s3</code> do. A file that's never been pushed is skipped with a message rather than treated as an error.</p>
+      <p>Both use whichever mode is configured (<code>refractctl config set mode http|s3</code>, or <code>CONFIG_SOURCE_KIND</code>), the same way <code>push-http</code>/<code>push-s3</code> do. A file that's never been pushed is skipped with a message rather than treated as an error.</p>
 
       <h3>Rebuilding <code>values.yaml</code> from what's live</h3>
-      <p><code>gatewayctl generate-values</code> goes a step further than <code>--remote</code> or <code>fetch</code>: instead of a display table or raw files, it reconstructs an actual <code>values.yaml</code> - the same file <code>add-backend</code>/<code>fault</code> read and write - from what's currently live. Every field (host, port, tls, domain, route-prefix, host-header, timeouts, faults) is recoverable from <code>cds.yaml</code>/<code>lds.yaml</code>/<code>runtime.yaml</code>, the same way <code>kubectl get -o yaml</code> exports a live object's manifest:</p>
-<pre><code>gatewayctl generate-values
+      <p><code>refractctl generate-values</code> goes a step further than <code>--remote</code> or <code>fetch</code>: instead of a display table or raw files, it reconstructs an actual <code>values.yaml</code> - the same file <code>add-backend</code>/<code>fault</code> read and write - from what's currently live. Every field (host, port, tls, domain, route-prefix, host-header, timeouts, faults) is recoverable from <code>cds.yaml</code>/<code>lds.yaml</code>/<code>runtime.yaml</code>, the same way <code>kubectl get -o yaml</code> exports a live object's manifest:</p>
+<pre><code>refractctl generate-values
 <span class="cmt"># Wrote config/values.yaml: 3 backend(s), 1 fault override(s)</span></code></pre>
       <p>Use this to sync local state before making further changes - the same shape as <code>git pull</code> before <code>git push</code> - instead of trusting whatever's already sitting in local <code>values.yaml</code>, which may be stale or may not even be the copy that was last used to push. It refuses to overwrite an existing <code>values.yaml</code> unless you pass <code>--force</code>, since that would discard any local-only changes not yet pushed.</p>
       <div class="note">One field can't round-trip: a backend's <code>--timeout</code> is a route-level Envoy property, so a backend registered with no route at all (<code>--domain</code>/<code>--route-prefix</code> both omitted) never persists that value anywhere - it comes back as the CLI's own default (<code>15s</code>) rather than whatever it actually was. Every other field is exact.</div>
@@ -514,18 +514,18 @@ cat rendered/cds.yaml   <span class="cmt"># every live cluster, straight from th
 
       <h3>Path Based Routing</h3>
       <p><code>--route-prefix</code> routes requests under that path prefix to the backend, rewritten to <code>/</code> on the upstream:</p>
-<pre><code>gatewayctl add-backend --name httpbin --host httpbin.org --port 443 --tls --route-prefix /httpbin/
+<pre><code>refractctl add-backend --name httpbin --host httpbin.org --port 443 --tls --route-prefix /httpbin/
 
 curl http://localhost:8080/httpbin/get</code></pre>
       <p>This flag is optional; omitting it registers the cluster without a route. Unmatched requests fall through to <code>default_app</code>, the bundled echo server on port <code>5050</code>.</p>
 
       <h3>Virtual Host Routing</h3>
       <p><code>--domain</code> gives a backend its own Envoy virtual host, matched on the <code>Host</code> header, instead of or in addition to a path prefix:</p>
-<pre><code>gatewayctl add-backend \
+<pre><code>refractctl add-backend \
   --name svc-a --host svc-a.internal --port 8080 \
   --domain frontend-a.test.local
 
-gatewayctl add-backend \
+refractctl add-backend \
   --name svc-b --host svc-b.internal --port 8080 \
   --domain frontend-b.test.local --route-prefix /api/
 
@@ -535,19 +535,19 @@ curl -H "Host: frontend-b.test.local" http://localhost:8080/api/anything</code><
 
       <h3>Host Header Rewriting</h3>
       <p><code>--host-header</code> overrides the <code>Host</code> header sent to the upstream. This matters for any backend - Cloudflare-fronted ones especially - that rejects a request whose <code>Host</code> header doesn't match the TLS SNI/cert:</p>
-<pre><code>gatewayctl add-backend --name serverprobes --host www.serverprobes.com --port 443 --tls \
+<pre><code>refractctl add-backend --name serverprobes --host www.serverprobes.com --port 443 --tls \
   --route-prefix /serverprobes/ --host-header www.serverprobes.com</code></pre>
       <div class="note"><code>--host</code> (and TLS SNI) control where and how Envoy connects to the upstream; <code>--host-header</code> controls what the upstream actually sees in the request itself. Without it, the upstream receives the gateway's own inbound <code>Host</code> header unchanged - fine for a backend like <code>httpbin.org</code> that doesn't validate it, but rejected outright (<code>421 Misdirected Request</code>) by anything that does.</div>
 
       <h3>HTTP/2 Upstreams (gRPC)</h3>
       <p><code>--http2</code> makes Envoy speak HTTP/2 to a backend's upstream connection. Without it, Envoy defaults every cluster to HTTP/1.1 upstream regardless of what the listener or client negotiated - gRPC needs HTTP/2 end to end, so a gRPC backend needs this flag to work at all:</p>
-<pre><code>gatewayctl add-backend --name grpc-svc --host grpc.internal --port 50051 --tls --http2 \
+<pre><code>refractctl add-backend --name grpc-svc --host grpc.internal --port 50051 --tls --http2 \
   --domain grpc.test.local</code></pre>
-      <div class="note">Use <code>--domain</code>, not <code>--route-prefix</code>, for a gRPC backend - path rewriting breaks gRPC's fixed <code>/package.Service/Method</code> paths. If <code>--tls</code> is also set, ALPN advertises <code>h2</code> during the handshake. If this gateway is deployed behind an Ingress (the Helm charts), that hop also needs its own HTTP/2 or gRPC <code>backend-protocol</code> annotation - <code>--http2</code> only covers gatewayctl's own upstream connection, not the Ingress-to-pod hop in front of it.</div>
+      <div class="note">Use <code>--domain</code>, not <code>--route-prefix</code>, for a gRPC backend - path rewriting breaks gRPC's fixed <code>/package.Service/Method</code> paths. If <code>--tls</code> is also set, ALPN advertises <code>h2</code> during the handshake. If this gateway is deployed behind an Ingress (the Helm charts), that hop also needs its own HTTP/2 or gRPC <code>backend-protocol</code> annotation - <code>--http2</code> only covers refractctl's own upstream connection, not the Ingress-to-pod hop in front of it.</div>
 
       <h3>Response Compression</h3>
       <p><code>--compression gzip</code> turns on gzip response compression for one backend's route. It's off by default and opt-in per backend, not gateway-wide - this is a perf-testing tool, and compression changes latency/CPU characteristics that would otherwise silently affect a load test nobody asked to have compressed:</p>
-<pre><code>gatewayctl add-backend --name api --host api.internal --port 8080 --route-prefix /api/ --compression gzip
+<pre><code>refractctl add-backend --name api --host api.internal --port 8080 --route-prefix /api/ --compression gzip
 
 curl -H "Accept-Encoding: gzip" http://localhost:8080/api/... <span class="cmt"># content-encoding: gzip</span>
 curl http://localhost:8080/                                   <span class="cmt"># unaffected - compression wasn't requested for this route</span></code></pre>
@@ -560,7 +560,7 @@ curl http://localhost:8080/                                   <span class="cmt">
 <pre><code><span class="cmt"># this only rewrites the top-level HTML request - the page's own
 # /assets/*.js and /assets/*.css requests miss the prefix entirely and
 # fall through to default_app instead of the real files</span>
-gatewayctl add-backend --name some-spa --host some-spa.example.com --port 443 --tls \
+refractctl add-backend --name some-spa --host some-spa.example.com --port 443 --tls \
   --route-prefix /some-spa/ --host-header some-spa.example.com
 curl https://your-gateway/some-spa/          <span class="cmt"># 200, real HTML</span>
 curl https://your-gateway/assets/index.js    <span class="cmt"># hits default_app, not the real JS</span></code></pre>
@@ -571,7 +571,7 @@ curl https://your-gateway/assets/index.js    <span class="cmt"># hits default_ap
     <section id="timeouts">
       <h2>Timeouts</h2>
       <p><code>--connect-timeout</code> and <code>--timeout</code> control how long Envoy waits on the upstream connection and on the overall request, respectively:</p>
-<pre><code>gatewayctl add-backend --name slow-svc --host slow-svc.internal --port 8080 \
+<pre><code>refractctl add-backend --name slow-svc --host slow-svc.internal --port 8080 \
   --route-prefix /slow/ --connect-timeout 2s --timeout 30s</code></pre>
       <p><code>--connect-timeout</code> sets the cluster's connect timeout and defaults to <code>5s</code>. <code>--timeout</code> sets the route's request timeout and defaults to <code>15s</code>. Both accept Envoy duration strings (e.g. <code>500ms</code>, <code>2s</code>).</p>
     </section>
@@ -580,16 +580,16 @@ curl https://your-gateway/assets/index.js    <span class="cmt"># hits default_ap
       <h2>Fault Injection</h2>
       <p>Each route, including the <code>default_app</code> fallback, has its own independently toggleable fault injection, isolated by a unique Envoy runtime key per <code>--target</code>. Faulting one backend does not affect any other's traffic:</p>
 <pre><code><span class="cmt"># 30% of backend-1's requests return 503 - backend-2, default_app, etc. are unaffected</span>
-gatewayctl fault abort --target backend-1 --percent 30 --status 503
+refractctl fault abort --target backend-1 --percent 30 --status 503
 
 <span class="cmt"># 20% of backend-1's requests are delayed by 2s</span>
-gatewayctl fault delay --target backend-1 --percent 20 --duration-ms 2000
+refractctl fault delay --target backend-1 --percent 20 --duration-ms 2000
 
 <span class="cmt"># reset backend-1 to baseline</span>
-gatewayctl fault reset --target backend-1
+refractctl fault reset --target backend-1
 
 <span class="cmt"># target the default_app fallback route instead</span>
-gatewayctl fault abort --target default_app --percent 100 --status 503</code></pre>
+refractctl fault abort --target default_app --percent 100 --status 503</code></pre>
       <p><code>--target</code> is the backend's <code>--name</code> value, or <code>default_app</code> for the fallback route.</p>
 
       <h3>How it's distributed</h3>
@@ -645,17 +645,17 @@ make -C config_server up
 make up</code></pre>
 
       <h3>S3 source</h3>
-<pre><code>make -C gatewayctl install
+<pre><code>make -C refractctl install
 make all
-export CONFIG_S3_BUCKET=my-bucket CONFIG_S3_PREFIX=envoy-perf-gateway/
+export CONFIG_S3_BUCKET=my-bucket CONFIG_S3_PREFIX=refract/
 make run-s3   <span class="cmt"># needs AWS credentials in your shell env (AWS_ACCESS_KEY_ID etc.)</span></code></pre>
-      <p>Configure the CLI once (<code>gatewayctl config set mode s3</code>, <code>s3.bucket</code>, <code>s3.prefix</code>) so <code>add-backend</code>/<code>remove-backend</code> push to S3 automatically. <code>API_TOKEN</code>/<code>CONFIG_API_TOKEN</code> both default to <code>default</code> if unset — fine on localhost, export a real value for anything beyond that.</p>
+      <p>Configure the CLI once (<code>refractctl config set mode s3</code>, <code>s3.bucket</code>, <code>s3.prefix</code>) so <code>add-backend</code>/<code>remove-backend</code> push to S3 automatically. <code>API_TOKEN</code>/<code>CONFIG_API_TOKEN</code> both default to <code>default</code> if unset — fine on localhost, export a real value for anything beyond that.</p>
 
       <h3>Building</h3>
 <pre><code>make all                        <span class="cmt"># gateway image</span>
 make -C config_server image     <span class="cmt"># config server image</span>
-make -C gatewayctl install      <span class="cmt"># install gatewayctl to $PATH</span>
-make build-gatewayctl-all       <span class="cmt"># cross-compile all platforms to gatewayctl/dist/</span></code></pre>
+make -C refractctl install      <span class="cmt"># install refractctl to $PATH</span>
+make build-refractctl-all       <span class="cmt"># cross-compile all platforms to refractctl/dist/</span></code></pre>
     </section>
 
     <section id="kubernetes">
@@ -663,12 +663,12 @@ make build-gatewayctl-all       <span class="cmt"># cross-compile all platforms 
       <p>Two independent charts under <code>charts/</code>: the gateway, and <code>config_server</code>, matching the fact that <code>config_server</code> can run entirely standalone.</p>
 
       <h3>1. Install the config server</h3>
-<pre><code>cd charts/envoy-perf-gateway-config-server
+<pre><code>cd charts/refract-config-server
 helm install my-config-server . --set apiToken=default</code></pre>
       <p>Its <code>NOTES.txt</code> output gives the in-cluster Service address to hand to the gateway.</p>
 
       <h3>2. Install the gateway, pointed at it</h3>
-<pre><code>cd charts/envoy-perf-gateway
+<pre><code>cd charts/refract
 helm install my-gateway . \
   --set configApiToken=default \
   --set configSourceUrl=http://my-config-server:8090</code></pre>
@@ -687,14 +687,14 @@ helm install my-gateway . \
         <tr><td><code>ingress.enabled</code></td><td>Off by default. Both charts ship an nginx + cert-manager Ingress template, disabled unless you opt in.</td></tr>
       </table>
 
-      <div class="warn">The gateway's admin port (<code>:9901</code>) is exposed on its Service for convenience, but a direct <code>POST /runtime_modify</code> against it only affects one pod and doesn't survive a restart — use <code>gatewayctl fault</code> for anything that should apply across <code>replicaCount</code> replicas.</div>
+      <div class="warn">The gateway's admin port (<code>:9901</code>) is exposed on its Service for convenience, but a direct <code>POST /runtime_modify</code> against it only affects one pod and doesn't survive a restart — use <code>refractctl fault</code> for anything that should apply across <code>replicaCount</code> replicas.</div>
     </section>
 
     <section id="architecture">
       <h2>Architecture</h2>
       <p>Clusters (CDS), listeners (LDS), and fault-injection runtime state are not static in <code>config/envoy.yaml</code>. The bootstrap only points Envoy at a directory it watches via inotify — there is no xDS control plane, no gRPC streams, no cluster bootstrap ceremony.</p>
-      <img class="arch-img" src="architecture.png" alt="Architecture diagram: gatewayctl renders and pushes config through config_server or S3 to a fetcher inside the Envoy container, which hot-reloads Envoy via inotify.">
-      <p><code>gatewayctl</code> on the host only ever writes to <code>values.yaml</code> and the local <code>rendered/</code> directory — it never touches the gateway container's filesystem directly. A <code>fetcher</code> binary running <em>inside</em> that container polls the config server or S3 and writes changes into <code>/etc/envoy/dynamic</code> itself, which is what actually triggers Envoy's inotify-based hot-reload.</p>
+      <img class="arch-img" src="architecture.png" alt="Architecture diagram: refractctl renders and pushes config through config_server or S3 to a fetcher inside the Envoy container, which hot-reloads Envoy via inotify.">
+      <p><code>refractctl</code> on the host only ever writes to <code>values.yaml</code> and the local <code>rendered/</code> directory — it never touches the gateway container's filesystem directly. A <code>fetcher</code> binary running <em>inside</em> that container polls the config server or S3 and writes changes into <code>/etc/envoy/dynamic</code> itself, which is what actually triggers Envoy's inotify-based hot-reload.</p>
       <p>See the full <a href="architecture.md">architecture doc</a> for the diagram's details, the HTTP/S3 distribution split, and how fault injection's <code>layered_runtime</code> disk layer works.</p>
     </section>
 
@@ -704,31 +704,31 @@ helm install my-gateway . \
       <h3><code>docker run</code> fails with "Conflict. The container name ... is already in use"</h3>
       <p>A container with that name already exists from a previous run - <code>docker run --name</code> requires unique names. Either reuse it or remove it first:</p>
 <pre><code><span class="cmt"># remove the old container, then re-run the original docker run command</span>
-docker rm -f envoy-perf-gateway
+docker rm -f refract
 
 <span class="cmt"># or just start the existing one instead</span>
-docker start envoy-perf-gateway</code></pre>
+docker start refract</code></pre>
       <p>The Quickstart's own commands now do this <code>docker rm -f</code> for you before each <code>docker run</code>, so copy-pasting the same block twice just works. You'll still hit this if you type a bare <code>docker run</code> yourself, or use <code>make run</code>/<code>make up</code> (see <a href="#from-source">Running From Source</a>) alongside a container already started from the Quickstart.</p>
 
       <h3>"No admin layer specified" on <code>fault</code> commands</h3>
       <p>Requires the <code>layered_runtime.admin</code> layer in <code>config/envoy.yaml</code>. Without it, Envoy's <code>/runtime_modify</code> refuses with <code>503 No admin layer specified</code>.</p>
 
       <h3>Fetcher logs <code>404 Not Found</code> for <code>runtime.yaml</code></h3>
-      <p>Benign — it just means nothing's been pushed to the config server yet (no backend or fault has ever been added). It resolves itself the moment any <code>gatewayctl</code> command that pushes config runs once.</p>
+      <p>Benign — it just means nothing's been pushed to the config server yet (no backend or fault has ever been added). It resolves itself the moment any <code>refractctl</code> command that pushes config runs once.</p>
 
       <h3>A fault change doesn't seem to apply</h3>
       <p>Allow up to <code>CONFIG_POLL_INTERVAL_SECONDS</code> (15s by default) for the fetcher's next poll. Check the running gateway's fault state directly against its admin API: <code>curl http://&lt;admin-host&gt;:9901/runtime</code> — the <code>entries</code> field shows exactly what Envoy currently sees.</p>
 
       <h3>Scaling <code>replicaCount</code> and fault injection</h3>
-      <p><code>add-backend</code>/<code>remove-backend</code> scale fine — every replica's fetcher independently converges on the same config. <code>gatewayctl fault</code> also scales correctly as of the current design (it distributes through the same pipeline). A direct admin-API <code>POST /runtime_modify</code>, however, only ever reaches one pod — don't rely on it for anything that needs to apply cluster-wide.</p>
+      <p><code>add-backend</code>/<code>remove-backend</code> scale fine — every replica's fetcher independently converges on the same config. <code>refractctl fault</code> also scales correctly as of the current design (it distributes through the same pipeline). A direct admin-API <code>POST /runtime_modify</code>, however, only ever reaches one pod — don't rely on it for anything that needs to apply cluster-wide.</p>
     </section>
 
     <section id="contributing">
       <h2>Contributing &amp; License</h2>
-      <p>Found a bug, have a feature request, or want to submit a fix? Open an <a href="https://github.com/jecklgamis/envoy-perf-gateway/issues">issue</a> or a <a href="https://github.com/jecklgamis/envoy-perf-gateway/pulls">pull request</a>.</p>
-      <p>Licensed under the <a href="https://github.com/jecklgamis/envoy-perf-gateway/blob/main/LICENSE">Apache License 2.0</a>.</p>
+      <p>Found a bug, have a feature request, or want to submit a fix? Open an <a href="https://github.com/jecklgamis/refract/issues">issue</a> or a <a href="https://github.com/jecklgamis/refract/pulls">pull request</a>.</p>
+      <p>Licensed under the <a href="https://github.com/jecklgamis/refract/blob/main/LICENSE">Apache License 2.0</a>.</p>
       <footer>
-        <a href="https://github.com/jecklgamis/envoy-perf-gateway">github.com/jecklgamis/envoy-perf-gateway</a>
+        <a href="https://github.com/jecklgamis/refract">github.com/jecklgamis/refract</a>
       </footer>
     </section>
 

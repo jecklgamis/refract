@@ -1,4 +1,4 @@
-module github.com/jecklgamis/envoy-perf-gateway/fetcher
+module github.com/jecklgamis/refract/fetcher
 
 go 1.24
 

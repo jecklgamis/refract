@@ -1,4 +1,4 @@
-IMAGE_NAME:=envoy-perf-gateway
+IMAGE_NAME:=refract
 IMAGE_TAG:=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo local)
 # config_server always requires API_TOKEN now (see config_server/Makefile).
 # Defaults to "default" here too for local dev convenience - matches
@@ -21,7 +21,7 @@ run:
 		-e CONFIG_SOURCE_URL=http://host.docker.internal:8090 \
 		-e CONFIG_API_TOKEN=$(CONFIG_API_TOKEN) \
 		$(IMAGE_NAME):$(IMAGE_TAG)
-# S3 source mode: run `gatewayctl push-s3 --bucket ...` after add-backend
+# S3 source mode: run `refractctl push-s3 --bucket ...` after add-backend
 # instead of relying on the local HTTP server. Needs AWS credentials in the
 # container's environment (mount ~/.aws, or pass -e AWS_ACCESS_KEY_ID etc).
 run-s3:
@@ -38,21 +38,21 @@ run-shell:
 	docker run -i -t $(IMAGE_NAME):$(IMAGE_TAG) /bin/bash
 exec-shell:
 	docker exec -it `docker ps | grep $(IMAGE_NAME) | awk '{print $$1}'` /bin/bash
-# gatewayctl is a self-contained Go module (own go.mod, own Makefile) -
+# refractctl is a self-contained Go module (own go.mod, own Makefile) -
 # a plain static binary, installable anywhere with no runtime dependency.
-build-gatewayctl:
-	$(MAKE) -C gatewayctl build
-# Cross-compiles gatewayctl for macOS (arm64/amd64) and Linux (amd64/arm64)
-# into gatewayctl/dist/ - hand these to teammates directly, no Go toolchain
+build-refractctl:
+	$(MAKE) -C refractctl build
+# Cross-compiles refractctl for macOS (arm64/amd64) and Linux (amd64/arm64)
+# into refractctl/dist/ - hand these to teammates directly, no Go toolchain
 # needed on their end.
-build-gatewayctl-all:
-	$(MAKE) -C gatewayctl build-all
+build-refractctl-all:
+	$(MAKE) -C refractctl build-all
 # Builds the gateway image with a values.yaml covering every add-backend
 # feature (TLS, HTTP/2, host-rewrite, domain/path-prefix routing, gzip
 # compression), boots it, and checks Envoy actually accepted the config
 # (not just that it compiled and marshaled) plus that the features behave
 # as configured. Run this after any change to
-# gatewayctl/internal/{render,envoyconfig}, config/envoy.yaml, or the
+# refractctl/internal/{render,envoyconfig}, config/envoy.yaml, or the
 # Dockerfile. See scripts/integration-test.sh for why this exists.
 integration-test:
 	./scripts/integration-test.sh

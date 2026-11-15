@@ -148,7 +148,7 @@ func atomicWrite(path string, data []byte) error {
 	return os.Rename(tmpPath, path)
 }
 
-// runtimeManifestFilename is the one file gatewayctl renders/pushes for
+// runtimeManifestFilename is the one file refractctl renders/pushes for
 // fault injection - a flat map of Envoy runtime key -> value. Unlike
 // cds.yaml/lds.yaml, Envoy doesn't read it directly: its layered_runtime
 // disk_layer (config/envoy.yaml) expects one regular file per key inside a
@@ -181,7 +181,7 @@ func expandRuntimeLayer(runtimeRoot string, content []byte) error {
 		return err
 	}
 	for key, value := range desired {
-		// gatewayctl validates --name/--target before a key ever reaches
+		// refractctl validates --name/--target before a key ever reaches
 		// this manifest, but this process runs as root and this content
 		// came over the network, so refuse anything that isn't a bare
 		// filename on its own merits too - a key containing a path
@@ -246,7 +246,7 @@ func main() {
 	}
 
 	// Serves the container's readinessProbe (see
-	// charts/envoy-perf-gateway/templates/deployment.yaml) - deliberately
+	// charts/refract/templates/deployment.yaml) - deliberately
 	// the fetcher, not Envoy, since Envoy's own /ready goes live using
 	// whatever's baked into the image immediately at boot (its
 	// dynamic_resources are file-based, so there's always something local

@@ -1,0 +1,124 @@
+{{- if eq .Values.configSourceKind "http" }}
+{{- if not .Values.configSourceUrl }}
+{{- fail "configSourceUrl is required when configSourceKind=http - install the refract-config-server chart (or point at an existing one) and set this to its address" }}
+{{- end }}
+{{- else if eq .Values.configSourceKind "s3" }}
+{{- if not .Values.s3.bucket }}
+{{- fail "s3.bucket is required when configSourceKind=s3" }}
+{{- end }}
+{{- else }}
+{{- fail (printf "unsupported configSourceKind: %s (want \"http\" or \"s3\")" .Values.configSourceKind) }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "refract.fullname" . }}
+  labels:
+    {{- include "refract.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "refract.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "refract.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: gateway
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.httpPort }}
+              protocol: TCP
+            - name: admin
+              containerPort: {{ .Values.service.adminPort }}
+              protocol: TCP
+            - name: fetcher-ready
+              containerPort: 8081
+              protocol: TCP
+          env:
+            - name: CONFIG_SOURCE_KIND
+              value: {{ .Values.configSourceKind | quote }}
+            {{- if eq .Values.configSourceKind "http" }}
+            - name: CONFIG_SOURCE_URL
+              value: {{ .Values.configSourceUrl | quote }}
+            - name: CONFIG_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.configApiTokenExistingSecret.name }}
+                  name: {{ .Values.configApiTokenExistingSecret.name }}
+                  key: {{ .Values.configApiTokenExistingSecret.key }}
+                  {{- else }}
+                  name: {{ include "refract.fullname" . }}
+                  key: config-api-token
+                  {{- end }}
+            {{- else }}
+            - name: CONFIG_S3_BUCKET
+              value: {{ .Values.s3.bucket | quote }}
+            - name: CONFIG_S3_PREFIX
+              value: {{ .Values.s3.prefix | quote }}
+            {{- if .Values.s3.region }}
+            - name: AWS_REGION
+              value: {{ .Values.s3.region | quote }}
+            {{- end }}
+            {{- if .Values.s3.existingSecret }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.existingSecret }}
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.s3.existingSecret }}
+                  key: AWS_SECRET_ACCESS_KEY
+            {{- end }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: admin
+          # Deliberately served by the fetcher (see fetcher/main.go), not
+          # Envoy: Envoy's own /ready goes live using the image's baked-in
+          # seed config immediately at boot - which is usually near-empty,
+          # since rendered/ is gitignored and real backend/fault state
+          # lives in the config server/S3, not the image - well before the
+          # fetcher has ever synced the real source. This keeps a pod out
+          # of rotation until it's actually serving current config, instead
+          # of silently falling through to default_app for whatever
+          # backends/faults it hasn't caught up on yet.
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: fetcher-ready
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

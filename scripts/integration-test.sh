@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Integration test for the envoy-perf-gateway image: renders a values.yaml
+# Integration test for the refract image: renders a values.yaml
 # covering every add-backend feature (TLS, HTTP/2, host-rewrite, domain and
 # path-prefix routing, gzip compression, a no-route backend), bakes it into
 # a real image, boots it, and checks two things a Go unit test can't:
@@ -16,15 +16,15 @@
 #      configured (gzip only when asked for and only when the client
 #      supports it, routes isolated from each other).
 #
-# Run this after any change to gatewayctl/internal/{render,envoyconfig},
+# Run this after any change to refractctl/internal/{render,envoyconfig},
 # config/envoy.yaml, or the Dockerfile - anything that could change what
 # gets fed to Envoy.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-IMAGE_TAG="envoy-perf-gateway:integration-test"
-CONTAINER_NAME="envoy-perf-gateway-integration-test"
+IMAGE_TAG="refract:integration-test"
+CONTAINER_NAME="refract-integration-test"
 WORKDIR="$(mktemp -d)"
 HTTP_PORT=18280
 ADMIN_PORT=19291
@@ -32,28 +32,28 @@ ADMIN_PORT=19291
 # S3 phase (see "S3 distribution mode" section below) - a separate
 # container/network/MinIO stack, distinct ports and names so it can't
 # collide with the http-mode phase above.
-NETWORK_NAME="envoy-perf-gateway-integration-test-net"
-MINIO_CONTAINER="envoy-perf-gateway-integration-test-minio"
-S3_CONTAINER="envoy-perf-gateway-integration-test-s3"
+NETWORK_NAME="refract-integration-test-net"
+MINIO_CONTAINER="refract-integration-test-minio"
+S3_CONTAINER="refract-integration-test-s3"
 S3_HTTP_PORT=18380
 S3_ADMIN_PORT=19392
 MINIO_API_PORT=19502
-S3_BUCKET="gatewayctl-integration-test"
+S3_BUCKET="refractctl-integration-test"
 S3_ACCESS_KEY="minioadmin"
 S3_SECRET_KEY="minioadmin"
 
-# CRITICAL: without this, gatewayctl falls back to
-# ~/.config/gatewayctl/config.yaml - whoever's real settings file that
+# CRITICAL: without this, refractctl falls back to
+# ~/.config/refractctl/config.yaml - whoever's real settings file that
 # happens to be, on whatever machine runs this script. If that file has a
 # mode configured (http/s3), every add-backend/remove-backend call below
 # auto-pushes to a REAL, possibly production, config server - which is
 # exactly what happened the first time this script was written, live on
-# this project's own deployment. GATEWAYCTL_CONFIG must point at a path
+# this project's own deployment. REFRACTCTL_CONFIG must point at a path
 # that is guaranteed not to exist (fresh mktemp dir, every run) so
 # resolveMode() always resolves to "" and autoPushIfConfigured() is
 # always a no-op here, no matter whose machine or CI runner this executes
 # on. Do not remove this without a very good reason.
-export GATEWAYCTL_CONFIG="$WORKDIR/gatewayctl-settings.yaml"
+export REFRACTCTL_CONFIG="$WORKDIR/refractctl-settings.yaml"
 
 cleanup() {
   local exit_code=$?
@@ -68,11 +68,11 @@ trap cleanup EXIT
 pass() { echo "PASS: $1"; }
 fail() { echo "FAIL: $1" >&2; exit 1; }
 
-echo "--- Building gatewayctl ---"
-(cd gatewayctl && go build -o gatewayctl .)
+echo "--- Building refractctl ---"
+(cd refractctl && go build -o refractctl .)
 
 echo "--- Rendering a values.yaml covering every add-backend feature ---"
-GATEWAY_BIN="$PWD/gatewayctl/gatewayctl"
+GATEWAY_BIN="$PWD/refractctl/refractctl"
 VALUES="$WORKDIR/values.yaml"
 
 # --force: no mode is configured (no --config pointed at a real settings
@@ -176,14 +176,14 @@ code="$(curl -s -o /dev/null -w '%{http_code}' -H "Host: vhost.integration-test.
 pass "domain+prefix virtual host route serves 200"
 
 echo
-echo "--- S3 distribution mode: gatewayctl push-s3 -> fetcher poll -> Envoy hot-reload ---"
+echo "--- S3 distribution mode: refractctl push-s3 -> fetcher poll -> Envoy hot-reload ---"
 # Everything above bakes rendered/ straight into the image and never
 # exercises the config-distribution pipeline at all. This phase is the one
 # that actually proves push-s3 and the in-container fetcher's S3 poller
 # work end to end, against a local MinIO standing in for real AWS S3 (no
 # cloud dependency, no credentials to manage in CI) - the same bug class
 # the http-mode phase above catches for rendering, but for the S3 code
-# path in fetcher/main.go and gatewayctl/cmd/{push_s3,fetch}.go instead.
+# path in fetcher/main.go and refractctl/cmd/{push_s3,fetch}.go instead.
 docker network create "$NETWORK_NAME" >/dev/null
 
 docker run -d --name "$MINIO_CONTAINER" --network "$NETWORK_NAME" \
@@ -207,7 +207,7 @@ docker run --rm --network "$NETWORK_NAME" \
   -e "MC_HOST_local=http://${S3_ACCESS_KEY}:${S3_SECRET_KEY}@${MINIO_CONTAINER}:9000" \
   quay.io/minio/mc mb "local/$S3_BUCKET" >/dev/null
 
-echo "--- Pushing a values.yaml to S3 via gatewayctl push-s3 ---"
+echo "--- Pushing a values.yaml to S3 via refractctl push-s3 ---"
 S3_VALUES="$WORKDIR/s3-values.yaml"
 S3_RENDERED="$WORKDIR/s3-rendered"
 mkdir -p "$S3_RENDERED"
@@ -221,7 +221,7 @@ export S3_FORCE_PATH_STYLE=true
   --values "$S3_VALUES" --rendered-dir "$S3_RENDERED" --force
 "$GATEWAY_BIN" push-s3 --bucket "$S3_BUCKET" --prefix "" \
   --values "$S3_VALUES" --rendered-dir "$S3_RENDERED"
-pass "gatewayctl push-s3 uploaded cds/lds/runtime to MinIO"
+pass "refractctl push-s3 uploaded cds/lds/runtime to MinIO"
 
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION AWS_ENDPOINT_URL_S3 S3_FORCE_PATH_STYLE
 

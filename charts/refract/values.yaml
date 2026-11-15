@@ -1,0 +1,86 @@
+# Default values for refract.
+#
+# config_server is a separate chart (refract-config-server) -
+# install it independently and point configSourceUrl at it, or point
+# refractctl at it directly. See that chart's NOTES.txt for the
+# in-cluster address to use.
+
+image:
+  repository: jecklgamis/refract
+  # tag defaults to a mutable branch tag ("main"), not a fixed version - so
+  # pullPolicy must be Always, or a node that already cached an older
+  # "main" image won't re-pull the newer one a fresh CI build just pushed
+  # under the same tag, and a rollout/upgrade silently keeps running stale
+  # code with no error anywhere.
+  tag: "main"
+  pullPolicy: Always
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  httpPort: 8080
+  adminPort: 9901
+
+# -- "http" (talk to a config_server) or "s3" (poll an S3 bucket
+# instead).
+configSourceKind: http
+
+# -- Base URL of a config_server instance - e.g. the Service address
+# from installing the refract-config-server chart
+# separately, such as http://my-config-server:8090. Required when
+# configSourceKind=http.
+configSourceUrl: ""
+
+# -- Bearer token sent to the config server. Must match that
+# deployment's apiToken. Prefer configApiTokenExistingSecret in
+# anything beyond local/dev use.
+configApiToken: ""
+# -- Existing Secret {name, key} to source the token from instead of
+# configApiToken.
+configApiTokenExistingSecret: {}
+# name: ""
+# key: ""
+
+s3:
+  bucket: ""
+  prefix: "refract/"
+  region: ""
+  # -- Existing Secret providing AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY,
+  # e.g. for clusters without IRSA/workload identity.
+  existingSecret: ""
+
+resources: {}
+# limits:
+#   cpu: 500m
+#   memory: 256Mi
+# requests:
+#   cpu: 100m
+#   memory: 128Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  hosts:
+    - host: refract.jecklgamis.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: refract-tls
+      hosts:
+        - refract.jecklgamis.com

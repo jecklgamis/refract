@@ -1,10 +1,10 @@
 // config_server is a small config distribution server: it accepts rendered
-// config files over HTTP (gatewayctl push-http) and serves the latest
+// config files over HTTP (refractctl push-http) and serves the latest
 // version back out (config-fetcher polling inside the Envoy container).
 //
-// This decouples gatewayctl from the server's filesystem - the server
+// This decouples refractctl from the server's filesystem - the server
 // keeps its own storage and can run anywhere reachable over HTTP, not just
-// colocated on the same disk as gatewayctl.
+// colocated on the same disk as refractctl.
 package main
 
 import (

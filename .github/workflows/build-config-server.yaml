@@ -20,9 +20,9 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ github.repository_owner }}/envoy-perf-gateway-config-server
+          images: ${{ github.repository_owner }}/refract-config-server
       - name: Log in to Docker Hub
-        if: ${{ github.event.repository.name == 'envoy-perf-gateway' && github.event_name != 'pull_request' }}
+        if: ${{ github.event.repository.name == 'refract' && github.event_name != 'pull_request' }}
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -31,6 +31,6 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: config_server
-          push: ${{ github.event.repository.name == 'envoy-perf-gateway' && github.event_name != 'pull_request' }}
+          push: ${{ github.event.repository.name == 'refract' && github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

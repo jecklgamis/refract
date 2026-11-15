@@ -1,4 +1,4 @@
-# Contributing to envoy-perf-gateway
+# Contributing to refract
 
 Thanks for considering a contribution. This project is small and the
 maintainer is one person, so keeping changes focused and well-tested
@@ -7,10 +7,10 @@ things.
 
 ## Ways to contribute
 
-- **Bug reports** - open an [issue](https://github.com/jecklgamis/envoy-perf-gateway/issues).
+- **Bug reports** - open an [issue](https://github.com/jecklgamis/refract/issues).
   Include what you ran, what you expected, and what actually happened.
   For anything involving the gateway/fetcher/config server, the exact
-  `gatewayctl` command and, if relevant, `CONFIG_SOURCE_KIND` (`http` or
+  `refractctl` command and, if relevant, `CONFIG_SOURCE_KIND` (`http` or
   `s3`) save a lot of back-and-forth.
 - **Feature requests** - also an issue. A short description of the use
   case is more useful than a fully-specified design; this is a perf/chaos
@@ -19,14 +19,14 @@ things.
 - **Security issues** - please don't open a public issue for anything
   that looks like a real vulnerability (e.g. a way to write outside an
   intended directory, bypass the config server's token check, or similar).
-  Use GitHub's [private vulnerability reporting](https://github.com/jecklgamis/envoy-perf-gateway/security/advisories/new)
+  Use GitHub's [private vulnerability reporting](https://github.com/jecklgamis/refract/security/advisories/new)
   instead.
 
 ## Project layout
 
 Four independent Go modules, one repo:
 
-- `gatewayctl/` - the CLI. Own `go.mod`/`Makefile`; build/test/run it from
+- `refractctl/` - the CLI. Own `go.mod`/`Makefile`; build/test/run it from
   that directory, not the repo root.
 - `config_server/` - the small HTTP config-distribution service.
 - `fetcher/` - runs inside the gateway container, polls `config_server`
@@ -39,21 +39,21 @@ in this repo's markdown), and `docs/architecture.md`. `CLAUDE.md` has a
 more detailed architectural writeup, including some non-obvious gotchas
 (Envoy's `disk_layer` symlink-swap requirement, a compressor
 `typed_per_filter_config` quirk) worth reading before touching
-`gatewayctl/internal/render` or `envoyconfig`.
+`refractctl/internal/render` or `envoyconfig`.
 
 ## Building and testing
 
 ```bash
-# gatewayctl
-cd gatewayctl && go build ./... && go test ./...
+# refractctl
+cd refractctl && go build ./... && go test ./...
 
 # gateway / config server images
 make all                      # gateway image
 make -C config_server image   # config server image
 ```
 
-**If your change touches `gatewayctl/internal/render`,
-`gatewayctl/internal/envoyconfig`, `config/envoy.yaml`, or the
+**If your change touches `refractctl/internal/render`,
+`refractctl/internal/envoyconfig`, `config/envoy.yaml`, or the
 `Dockerfile`**, also run the integration test:
 
 ```bash
@@ -111,7 +111,7 @@ the config."
 For a PR:
 
 - Keep it focused. A bug fix doesn't need an accompanying refactor.
-- If you touched anything under `gatewayctl/`, run `gofmt -l .` from that
+- If you touched anything under `refractctl/`, run `gofmt -l .` from that
   directory and fix anything it flags (excluding the one pre-existing,
   unrelated issue in `envoyconfig.go` if you see it - not yours to fix as
   part of an unrelated PR).

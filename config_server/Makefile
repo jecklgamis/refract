@@ -1,4 +1,4 @@
-IMAGE_NAME:=envoy-perf-gateway-config-server
+IMAGE_NAME:=refract-config-server
 IMAGE_TAG:=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo local)
 # API_TOKEN is required - the server refuses to start without it. Defaults
 # to "default" here for local dev convenience; export your own in the

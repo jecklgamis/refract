@@ -18,15 +18,15 @@ To work around this, the `fetcher/` binary (a statically linked Go binary)
 runs inside the container, managed by `supervisor.ini`, and polls a remote
 source for `cds.yaml`/`lds.yaml`/`runtime.yaml`. It writes them into
 `/etc/envoy/dynamic` itself, a write native to the container's own
-filesystem, which does trigger Envoy's inotify watch. `gatewayctl` on the
+filesystem, which does trigger Envoy's inotify watch. `refractctl` on the
 host only ever writes to `config/values.yaml` and the local `rendered/`
 directory; it never touches the container's filesystem directly.
 
-Both `gatewayctl` and the fetcher write atomically (temp file, then
+Both `refractctl` and the fetcher write atomically (temp file, then
 rename, rather than delete-then-write), so a reader never observes a
 missing or partial file mid-swap.
 
-Fault injection (`gatewayctl fault ...`) rides this same pipeline instead
+Fault injection (`refractctl fault ...`) rides this same pipeline instead
 of a separate one. Fault state lives in `values.yaml`'s `faults` map,
 renders to a flat key/value `runtime.yaml`, and distributes like any other
 file above. Envoy doesn't read that manifest directly, though: its
@@ -51,7 +51,7 @@ overrides, in-memory only, lost on that pod's next restart.
 
 Two distribution mechanisms are supported, selected by the
 `CONFIG_SOURCE_KIND` environment variable on the container. Both require
-an explicit push after each change; `gatewayctl` never touches the
+an explicit push after each change; `refractctl` never touches the
 container or the fetcher's source directly, only the distribution
 endpoint.
 
@@ -59,9 +59,9 @@ endpoint.
 
 The fetcher polls `config_server`, a small Go HTTP service with its own
 `storage/` directory. It has its own `Dockerfile`/`Makefile` and is
-deployable as its own service. `gatewayctl push-http` uploads
+deployable as its own service. `refractctl push-http` uploads
 `rendered/cds.yaml`/`lds.yaml`/`runtime.yaml` to it over HTTP POST. The server does not
-need to be colocated with `gatewayctl`; anywhere reachable over HTTP
+need to be colocated with `refractctl`; anywhere reachable over HTTP
 works, which is what makes this option cloud-agnostic (no dependency on
 AWS or any other specific provider). Access is optionally gated by
 `API_TOKEN` (see the main README).
@@ -69,6 +69,6 @@ AWS or any other specific provider). Access is optionally gated by
 **`s3`**
 
 The fetcher polls an S3 bucket, so this mode is AWS-specific (or requires
-an S3-compatible API). `gatewayctl push-s3` uploads `rendered/` there
+an S3-compatible API). `refractctl push-s3` uploads `rendered/` there
 instead. This is useful once configuration needs to be shared across
 multiple gateway instances via a durable, versioned store.

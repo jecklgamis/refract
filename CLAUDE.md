@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Envoy as a front door for perf and chaos testing. `gatewayctl` (a Go CLI)
+Envoy as a front door for perf and chaos testing. `refractctl` (a Go CLI)
 adds/removes backends and manages fault injection, without a full xDS
 control plane. Three independent Go modules live in this repo:
 
-- `gatewayctl/` - the CLI, run on the host. Renders `config/values.yaml`
+- `refractctl/` - the CLI, run on the host. Renders `config/values.yaml`
   into Envoy CDS/LDS/runtime YAML and pushes it to a distribution
   endpoint.
 - `config_server/` - a small standalone HTTP service that stores
@@ -20,8 +20,8 @@ control plane. Three independent Go modules live in this repo:
   for unmatched requests. Response shape mirrors httpbin's `/anything`
   (`args`/`data`/`headers`/`method`/`origin`/`url`).
 
-`charts/` holds two independent Helm charts: `envoy-perf-gateway` (the
-gateway only) and `envoy-perf-gateway-config-server` (standalone,
+`charts/` holds two independent Helm charts: `refract` (the
+gateway only) and `refract-config-server` (standalone,
 mirroring the fact `config_server` can run on its own). `docs/index.html`
 is the published user guide (GitHub Pages, `main`/`docs`); most
 user-facing detail (routing, fault injection, Helm deployment,
@@ -32,19 +32,19 @@ check it before re-deriving CLI behavior from source.
 
 **Build:**
 ```bash
-make all                          # builds the envoy-perf-gateway (Envoy) image
+make all                          # builds the refract (Envoy) image
 make -C config_server image       # builds the config_server image
-make -C gatewayctl install        # go install gatewayctl onto $PATH
-make build-gatewayctl-all         # cross-compile gatewayctl for darwin/linux, arm64/amd64 -> gatewayctl/dist/
+make -C refractctl install        # go install refractctl onto $PATH
+make build-refractctl-all         # cross-compile refractctl for darwin/linux, arm64/amd64 -> refractctl/dist/
 ```
 Bare `make` in the repo root or `config_server/` builds that component's
-image by default (not a help/usage printout). Bare `make` in `gatewayctl/`
+image by default (not a help/usage printout). Bare `make` in `refractctl/`
 builds the binary.
 
-**Test** (gatewayctl only - the other three modules have no test files):
+**Test** (refractctl only - the other three modules have no test files):
 ```bash
-cd gatewayctl && go test ./...              # all packages
-go test ./... -run TestName                 # single test, from gatewayctl/
+cd refractctl && go test ./...              # all packages
+go test ./... -run TestName                 # single test, from refractctl/
 go test ./... -cover                        # with coverage
 ```
 Coverage is high on the pure logic (`internal/render` ~92%, `internal/envoyconfig`
@@ -64,13 +64,13 @@ Docker, no AWS credentials or cloud access required):
   rejects at listener-load time (see the compressor gotcha above; this
   script exists specifically because that bug shipped without one). Also
   does functional checks (gzip applies/doesn't leak, routes isolated).
-- **S3-mode phase**: proves `gatewayctl push-s3` and the in-container
+- **S3-mode phase**: proves `refractctl push-s3` and the in-container
   fetcher's S3 poller actually work end to end - push → fetcher poll →
   Envoy hot-reload → real traffic - against a local `quay.io/minio/minio`
   standing in for AWS S3 (no cloud dependency, no CI secrets). Requires
   `S3_FORCE_PATH_STYLE=true` and `AWS_ENDPOINT_URL_S3` (the fetcher's/
-  `gatewayctl`'s S3 client honors both - see `newS3Client` in
-  `gatewayctl/cmd/root.go` and `fetcher/main.go`'s `buildSource`); real AWS
+  `refractctl`'s S3 client honors both - see `newS3Client` in
+  `refractctl/cmd/root.go` and `fetcher/main.go`'s `buildSource`); real AWS
   S3 needs neither. This phase is **deliberately tolerant** of a transient
   `update_rejected` blip on the container's first S3 poll and checks
   eventual consistency instead (no active `error_state` on the listener,
@@ -84,14 +84,14 @@ Docker, no AWS credentials or cloud access required):
   zero-rejection check without fixing that first.
 
 **If you edit this script**: it must never let `add-backend`/`remove-backend`
-resolve a real `~/.config/gatewayctl/config.yaml` - it sets
-`GATEWAYCTL_CONFIG` to a fresh temp path for exactly this reason, after an
+resolve a real `~/.config/refractctl/config.yaml` - it sets
+`REFRACTCTL_CONFIG` to a fresh temp path for exactly this reason, after an
 earlier version of this script auto-pushed its test backends to this
 project's own live production deployment on the first run. Don't remove
 that without understanding why it's there. The same trap applies to any ad
-hoc `gatewayctl` command run outside this script (e.g. while debugging a
+hoc `refractctl` command run outside this script (e.g. while debugging a
 failure by hand) - it happened again mid-session once already; always set
-`GATEWAYCTL_CONFIG` to a scratch path first.
+`REFRACTCTL_CONFIG` to a scratch path first.
 
 **Run from source, HTTP distribution mode** (two terminals - both run in
 the foreground):
@@ -102,17 +102,17 @@ make up                           # builds + runs the gateway on :8080/:9901, po
 
 **Run from source, S3 distribution mode:**
 ```bash
-make -C gatewayctl install
+make -C refractctl install
 make all
-export CONFIG_S3_BUCKET=my-bucket CONFIG_S3_PREFIX=envoy-perf-gateway/
+export CONFIG_S3_BUCKET=my-bucket CONFIG_S3_PREFIX=refract/
 make run-s3                       # needs AWS credentials in the shell env
 ```
 
 Both HTTP and S3 modes default `API_TOKEN`/`CONFIG_API_TOKEN` to `default`
 if not exported - fine for localhost only.
 
-**gatewayctl dev loop:** self-contained Go module with its own
-`go.mod`/`Makefile` under `gatewayctl/`; build/test/run it from there, not
+**refractctl dev loop:** self-contained Go module with its own
+`go.mod`/`Makefile` under `refractctl/`; build/test/run it from there, not
 from the repo root.
 
 ## Architecture
@@ -126,15 +126,15 @@ Clusters, routes, and fault-injection runtime state are **not** static in
 change, no xDS server, no gRPC streams.
 
 ```
-gatewayctl (host)                                  Envoy container
+refractctl (host)                                  Envoy container
   add-backend/remove-backend/fault               +-------------------------------+
         |                                         | config-fetcher (supervisor)  |
         v                                         |   polls HTTP or S3           |
   config/values.yaml -> render -> rendered/{cds,lds,runtime}.yaml | atomic-writes -v |
         |                                         v                          |   |
         |                              /etc/envoy/dynamic  <------------------+
-        |  HTTP: gatewayctl push-http uploads to config_server's storage/    |
-        |  S3:   gatewayctl push-s3 uploads rendered/ to a bucket            v
+        |  HTTP: refractctl push-http uploads to config_server's storage/    |
+        |  S3:   refractctl push-s3 uploads rendered/ to a bucket            v
         +------------------------------------------------------> Envoy inotify watch -> hot-reload
 ```
 
@@ -143,11 +143,11 @@ On Docker Desktop for Mac, host writes into a bind mount sync file content
 but don't reliably propagate the inotify event, so Envoy never notices.
 Instead `fetcher/` runs *inside* the container and writes to
 `/etc/envoy/dynamic` itself - a write native to the container's own
-filesystem, which does trigger inotify. `gatewayctl` on the host only ever
+filesystem, which does trigger inotify. `refractctl` on the host only ever
 writes to `config/values.yaml` and the local `rendered/` directory; it
-never touches the container's filesystem directly. Both `gatewayctl` and
+never touches the container's filesystem directly. Both `refractctl` and
 the fetcher write atomically (temp file + rename) so a reader never
-observes a partial file mid-swap - see `gatewayctl/internal/atomicwrite`.
+observes a partial file mid-swap - see `refractctl/internal/atomicwrite`.
 
 **Fault injection's disk_layer has a non-obvious constraint**: Envoy's
 `layered_runtime.disk_layer` requires `symlink_root` to itself be a
@@ -183,7 +183,7 @@ than silently serving stale/seed config. It does **not** solve mixed
 distribution-mode rollouts (e.g. v1 on `http`, v2 on `s3` mid-deploy) -
 see the "Distribution modes" section below.
 
-**gatewayctl internals** (`gatewayctl/internal/`):
+**refractctl internals** (`refractctl/internal/`):
 - `config` - loads/saves `values.yaml` (`Backends` list, `Faults` map
   keyed by target name).
 - `render` - builds Envoy CDS/LDS/runtime structs from `config.Values`
@@ -194,13 +194,13 @@ see the "Distribution modes" section below.
 - `envoyconfig` - the Go structs mirroring Envoy's CDS/LDS resource
   shape, plus `FaultRuntimeKeys`/`FaultPerRoute` (the runtime-key naming
   convention shared between rendering and the `fault` commands).
-- `settings` - gatewayctl's own settings file (`~/.config/gatewayctl/config.yaml`
-  by default, overridable via `--config`/`GATEWAYCTL_CONFIG`): distribution
+- `settings` - refractctl's own settings file (`~/.config/refractctl/config.yaml`
+  by default, overridable via `--config`/`REFRACTCTL_CONFIG`): distribution
   mode (`http`/`s3`) plus the config server URL/token or S3 bucket/prefix.
-  Set once via `gatewayctl config set ...` so `add-backend`/`remove-backend`/
+  Set once via `refractctl config set ...` so `add-backend`/`remove-backend`/
   `fault` push automatically afterward.
 
-**gatewayctl commands beyond add/remove-backend and fault** (`gatewayctl/cmd/`):
+**refractctl commands beyond add/remove-backend and fault** (`refractctl/cmd/`):
 - `list-backends [--remote]` - local reads `values.yaml`; `--remote`
   fetches and reconstructs the same table from the config server's/S3's
   actual `cds.yaml`/`lds.yaml`, since local state can drift (a push that
@@ -284,7 +284,7 @@ see the "Distribution modes" section below.
 
 **Fault injection**: every route (each backend plus `default_app`) gets an
 independently toggleable fault config via a unique Envoy runtime key per
-`--target` (`gatewayctl fault abort|delay|reset --target <name>`), so
+`--target` (`refractctl fault abort|delay|reset --target <name>`), so
 faulting one target never affects another's traffic. Fault state is
 persisted through the same config-distribution pipeline as
 backends/routes (`values.yaml`'s `faults` map -> `runtime.yaml` ->
@@ -297,9 +297,9 @@ direct `POST /runtime_modify`.
 **Distribution modes**, selected by `CONFIG_SOURCE_KIND`:
 - `http` - `fetcher` polls `config_server` (its own Go module, own
   `storage/` dir, deployable standalone, or via the
-  `envoy-perf-gateway-config-server` Helm chart); `gatewayctl push-http`
+  `refract-config-server` Helm chart); `refractctl push-http`
   POSTs rendered YAML to it. Gated by `API_TOKEN`. Cloud-agnostic.
-- `s3` - `fetcher` polls an S3 bucket; `gatewayctl push-s3` uploads
+- `s3` - `fetcher` polls an S3 bucket; `refractctl push-s3` uploads
   `rendered/` there. AWS-specific (or an S3-compatible API). Useful once
   config needs to be shared across multiple gateway instances.
 
