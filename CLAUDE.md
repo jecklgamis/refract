@@ -32,14 +32,18 @@ check it before re-deriving CLI behavior from source.
 
 **Build:**
 ```bash
-make all                          # builds the refract (Envoy) image
+make all                          # (default) builds the refract (Envoy) image + config_server image + refractctl for this platform
+make image                        # builds only the refract (Envoy) image
 make -C config_server image       # builds the config_server image
-make -C refractctl install        # go install refractctl onto $PATH
+make install-cli                  # go install refractctl onto $PATH (same as make -C refractctl install)
 make build-refractctl-all         # cross-compile refractctl for darwin/linux, arm64/amd64 -> refractctl/dist/
 ```
-Bare `make` in the repo root or `config_server/` builds that component's
-image by default (not a help/usage printout). Bare `make` in `refractctl/`
-builds the binary.
+Bare `make` in the repo root is `make all`: it builds the gateway image, the
+config server image, and the `refractctl` binary for the current platform
+(`make image`, `make config-server-image` or `make build-refractctl` for just
+one). Bare `make` in `config_server/` builds
+that component's image by default, and bare `make` in `refractctl/` builds the
+binary (neither is a help/usage printout).
 
 **Test** (refractctl only - the other three modules have no test files):
 ```bash
@@ -93,20 +97,11 @@ hoc `refractctl` command run outside this script (e.g. while debugging a
 failure by hand) - it happened again mid-session once already; always set
 `REFRACTCTL_CONFIG` to a scratch path first.
 
-**Run from source, HTTP distribution mode** (two terminals - both run in
-the foreground):
-```bash
-make -C config_server up          # builds + runs config_server on :8090
-make up                           # builds + runs the gateway on :8080/:9901, polling config_server
-```
-
-**Run from source, S3 distribution mode:**
-```bash
-make -C refractctl install
-make all
-export CONFIG_S3_BUCKET=my-bucket CONFIG_S3_PREFIX=refract/
-make run-s3                       # needs AWS credentials in the shell env
-```
+**Running the gateway / config server** - the `Makefile`s (root and
+`config_server/`) are for building and testing only: no run/stop/logs/shell
+targets. To run the published images use `./run-gateway.sh` and
+`./run-config-server.sh`; to run one you just built, use `docker run`
+directly (see "Running From Source" in the User Guide).
 
 Both HTTP and S3 modes default `API_TOKEN`/`CONFIG_API_TOKEN` to `default`
 if not exported - fine for localhost only.
@@ -201,11 +196,18 @@ see the "Distribution modes" section below.
   `fault` push automatically afterward.
 
 **refractctl commands beyond add/remove-backend and fault** (`refractctl/cmd/`):
-- `list-backends [--remote]` - local reads `values.yaml`; `--remote`
-  fetches and reconstructs the same table from the config server's/S3's
-  actual `cds.yaml`/`lds.yaml`, since local state can drift (a push that
-  failed silently, or running from a different machine/directory than
-  whoever last pushed).
+- `list-backends [--local|--remote]` - when a mode is configured (env or
+  settings file) it defaults to the live config: fetches and reconstructs
+  the table from the config server's/S3's actual `cds.yaml`/`lds.yaml`,
+  since local state can drift (a push that failed silently, or running from
+  a different machine/directory than whoever last pushed), and prints a
+  stderr warning naming any difference from local `values.yaml` (pointing
+  at `generate-values --force`). With no mode it reads `values.yaml` and
+  notes on stderr that it may not match what's live (silenced by `--local`);
+  a missing `values.yaml` is an error, not an empty list (wrong-directory
+  trap). `--local` forces the local file (also the escape hatch when the remote is
+  unreachable - a failed fetch is an error, never a silent local fallback,
+  so drift can't hide).
 - `fetch` - downloads the raw `cds.yaml`/`lds.yaml`/`runtime.yaml` into
   `--rendered-dir`.
 - `generate-values` - reconstructs a full `values.yaml` from what's live

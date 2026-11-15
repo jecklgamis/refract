@@ -48,7 +48,7 @@ more detailed architectural writeup, including some non-obvious gotchas
 cd refractctl && go build ./... && go test ./...
 
 # gateway / config server images
-make all                      # gateway image
+make all                      # gateway + config server images + refractctl (default)
 make -C config_server image   # config server image
 ```
 

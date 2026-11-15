@@ -485,13 +485,15 @@ refractctl remove-backend --name httpbin</code></pre>
 
       <div class="note">Backend names (<code>--name</code>) are restricted to letters, digits, <code>-</code>, and <code>_</code>. This isn't arbitrary — the name becomes part of an Envoy runtime key that gets turned into a filesystem path on the gateway, so it's validated up front. Numeric flags are validated too, before anything is saved or pushed: <code>--port</code> must be 1-65535, <code>--percent</code> (fault commands) must be 0-100, <code>--status</code> must be a real HTTP status code (100-599), <code>--duration-ms</code> can't be negative, and <code>--connect-timeout</code>/<code>--timeout</code> must be a valid, positive duration string (e.g. <code>500ms</code>, <code>5s</code>).</div>
 
-      <div class="warn"><code>add-backend</code> refuses to run if local <code>values.yaml</code> doesn't exist yet but a mode is configured, unless you pass <code>--force</code>. This guards the wrong-directory/wrong-machine trap: a missing file looks identical to a legitimate first backend, but pushing it would silently overwrite a remote config that already has other backends on it with just this one. Run <code>refractctl list-backends --remote</code> first to check what's actually live, or pass <code>--force</code> if it's genuinely a fresh deployment. <code>remove-backend</code> doesn't need this - it always fails safely on a missing file, since "no backend named X" is caught before anything is ever saved or pushed.</div>
+      <div class="warn"><code>add-backend</code> refuses to run if local <code>values.yaml</code> doesn't exist yet but a mode is configured, unless you pass <code>--force</code>. This guards the wrong-directory/wrong-machine trap: a missing file looks identical to a legitimate first backend, but pushing it would silently overwrite a remote config that already has other backends on it with just this one. Run <code>refractctl list-backends</code> first to check what's actually live, or pass <code>--force</code> if it's genuinely a fresh deployment. <code>remove-backend</code> doesn't need this - it always fails safely on a missing file, since "no backend named X" is caught before anything is ever saved or pushed.</div>
 
       <h3>Checking the ground truth</h3>
-      <p><code>list-backends</code> only ever reads local <code>values.yaml</code> by default — it never talks to the network. If a push failed silently, or you're running <code>refractctl</code> from a different machine or directory than whoever last pushed, local <code>values.yaml</code> can drift from what's actually live. Add <code>--remote</code> to fetch the config server's (or S3's) current <code>cds.yaml</code>/<code>lds.yaml</code> and print the same table, reconstructed from what's actually live instead of local state:</p>
-<pre><code>refractctl list-backends --remote
+      <p>When a mode is configured, <code>list-backends</code> lists what's actually live: it fetches the config server's (or S3's) current <code>cds.yaml</code>/<code>lds.yaml</code> and prints the table reconstructed from them. Local <code>values.yaml</code> can drift from that — a push may have failed silently, or you may be running <code>refractctl</code> from a different machine or directory than whoever last pushed — so if the two differ, a warning on stderr names the difference and points at <code>refractctl generate-values --force</code> to rebuild <code>values.yaml</code> from what's live. With no mode configured it reads local <code>values.yaml</code> and never touches the network, and says so on stderr (a note that the list may not match what's live) unless you pass <code>--local</code>. A missing <code>values.yaml</code> is an error rather than an empty list, so running from the wrong directory can't look like "no backends". Force either source explicitly:</p>
+<pre><code>refractctl list-backends --remote   <span class="cmt"># live config, even with no mode set</span>
+refractctl list-backends --local    <span class="cmt"># local values.yaml only, even with a mode set</span>
 <span class="cmt"># httpbin              httpbin.org:443  tls        /httpbin/
 # serverprobes         www.serverprobes.com:443  tls        /serverprobes/</span></code></pre>
+      <p>If the config server or S3 can't be reached, <code>list-backends</code> fails with an error instead of quietly showing local data (which would hide exactly the drift it's there to expose); use <code>--local</code> to read <code>values.yaml</code> anyway.</p>
       <p>For the raw underlying files instead of the summarized table, <code>refractctl fetch</code> downloads <code>cds.yaml</code>, <code>lds.yaml</code>, and <code>runtime.yaml</code> - the same files the in-container fetcher polls - into <code>--rendered-dir</code>:</p>
 <pre><code>refractctl fetch
 <span class="cmt"># Fetched cds.yaml -> rendered/cds.yaml (3098 bytes)
@@ -638,23 +640,40 @@ k6 run script.js</code></pre>
 
       <h3>HTTP source</h3>
       <p>Each command runs in the foreground — use a separate terminal for each.</p>
-<pre><code><span class="cmt"># terminal 1</span>
-make -C config_server up
+<pre><code><span class="cmt"># terminal 1: build the config server image, then run it</span>
+make -C config_server image
+mkdir -p storage
+docker rm -f refract-config-server 2&gt;/dev/null
+docker run --name refract-config-server -p 8090:8090 \
+  -v $(pwd)/storage:/data \
+  -e API_TOKEN=default \
+  refract-config-server:$(git rev-parse --abbrev-ref HEAD)
 
-<span class="cmt"># terminal 2</span>
-make up</code></pre>
+<span class="cmt"># terminal 2: build the gateway image, then run it</span>
+make image
+docker rm -f refract 2&gt;/dev/null
+docker run --name refract -p 8080:8080 -p 9901:9901 \
+  -e CONFIG_SOURCE_KIND=http \
+  -e CONFIG_SOURCE_URL=http://host.docker.internal:8090 \
+  -e CONFIG_API_TOKEN=default \
+  refract:$(git rev-parse --abbrev-ref HEAD)</code></pre>
 
       <h3>S3 source</h3>
-<pre><code>make -C refractctl install
-make all
+<pre><code>make install-cli
+make image
 export CONFIG_S3_BUCKET=my-bucket CONFIG_S3_PREFIX=refract/
-make run-s3   <span class="cmt"># needs AWS credentials in your shell env (AWS_ACCESS_KEY_ID etc.)</span></code></pre>
+<span class="cmt"># needs AWS credentials in your shell env (AWS_ACCESS_KEY_ID etc.)</span>
+docker run -d --name refract -p 8080:8080 -p 9901:9901 \
+  -e CONFIG_SOURCE_KIND=s3 \
+  -e CONFIG_S3_BUCKET -e CONFIG_S3_PREFIX \
+  -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN -e AWS_REGION \
+  refract:$(git rev-parse --abbrev-ref HEAD)</code></pre>
       <p>Configure the CLI once (<code>refractctl config set mode s3</code>, <code>s3.bucket</code>, <code>s3.prefix</code>) so <code>add-backend</code>/<code>remove-backend</code> push to S3 automatically. <code>API_TOKEN</code>/<code>CONFIG_API_TOKEN</code> both default to <code>default</code> if unset — fine on localhost, export a real value for anything beyond that.</p>
 
       <h3>Building</h3>
-<pre><code>make all                        <span class="cmt"># gateway image</span>
+<pre><code>make image                      <span class="cmt"># gateway image</span>
 make -C config_server image     <span class="cmt"># config server image</span>
-make -C refractctl install      <span class="cmt"># install refractctl to $PATH</span>
+make install-cli                <span class="cmt"># install refractctl to $PATH</span>
 make build-refractctl-all       <span class="cmt"># cross-compile all platforms to refractctl/dist/</span></code></pre>
     </section>
 
@@ -708,7 +727,7 @@ docker rm -f refract
 
 <span class="cmt"># or just start the existing one instead</span>
 docker start refract</code></pre>
-      <p>The Quickstart's own commands now do this <code>docker rm -f</code> for you before each <code>docker run</code>, so copy-pasting the same block twice just works. You'll still hit this if you type a bare <code>docker run</code> yourself, or use <code>make run</code>/<code>make up</code> (see <a href="#from-source">Running From Source</a>) alongside a container already started from the Quickstart.</p>
+      <p>The Quickstart's own commands now do this <code>docker rm -f</code> for you before each <code>docker run</code>, so copy-pasting the same block twice just works. You'll still hit this if you type a bare <code>docker run</code> yourself, or run a locally built image (see <a href="#from-source">Running From Source</a>) alongside a container already started from the Quickstart.</p>
 
       <h3>"No admin layer specified" on <code>fault</code> commands</h3>
       <p>Requires the <code>layered_runtime.admin</code> layer in <code>config/envoy.yaml</code>. Without it, Envoy's <code>/runtime_modify</code> refuses with <code>503 No admin layer specified</code>.</p>

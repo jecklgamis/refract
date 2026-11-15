@@ -1,47 +1,26 @@
 IMAGE_NAME:=refract
 IMAGE_TAG:=$(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo local)
-# config_server always requires API_TOKEN now (see config_server/Makefile).
-# Defaults to "default" here too for local dev convenience - matches
-# config_server's own default when nothing's exported. Export your own in
-# the shell to override it for anything beyond local dev.
-CONFIG_API_TOKEN?=default
 
-.DEFAULT_GOAL := image
+.DEFAULT_GOAL := all
 
-image:
+# rendered/ is gitignored and baked into the image (Dockerfile COPY), so it
+# must be generated from config/values.yaml first - same step CI runs.
+# Local files only: render never pushes anywhere.
+render: build-refractctl
+	./refractctl/refractctl render
+image: render
 	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
-# HTTP source mode: the config-fetcher binary inside the container polls
-# config_server, which you must run first (make -C config_server up).
-# host.docker.internal lets the container reach the host.
-run:
-	-docker rm -f $(IMAGE_NAME) 2>/dev/null
-	docker run --name $(IMAGE_NAME) \
-		-p 8080:8080 -p 9901:9901 \
-		-e CONFIG_SOURCE_KIND=http \
-		-e CONFIG_SOURCE_URL=http://host.docker.internal:8090 \
-		-e CONFIG_API_TOKEN=$(CONFIG_API_TOKEN) \
-		$(IMAGE_NAME):$(IMAGE_TAG)
-# S3 source mode: run `refractctl push-s3 --bucket ...` after add-backend
-# instead of relying on the local HTTP server. Needs AWS credentials in the
-# container's environment (mount ~/.aws, or pass -e AWS_ACCESS_KEY_ID etc).
-run-s3:
-	docker run -d --name $(IMAGE_NAME) \
-		-p 8080:8080 -p 9901:9901 \
-		-e CONFIG_SOURCE_KIND=s3 \
-		-e CONFIG_S3_BUCKET=$(CONFIG_S3_BUCKET) \
-		-e CONFIG_S3_PREFIX=$(CONFIG_S3_PREFIX) \
-		-e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN -e AWS_REGION \
-		$(IMAGE_NAME):$(IMAGE_TAG)
-stop:
-	docker stop $(IMAGE_NAME) && docker rm $(IMAGE_NAME)
-run-shell:
-	docker run -i -t $(IMAGE_NAME):$(IMAGE_TAG) /bin/bash
-exec-shell:
-	docker exec -it `docker ps | grep $(IMAGE_NAME) | awk '{print $$1}'` /bin/bash
+# config_server is its own module with its own Makefile and image.
+config-server-image:
+	$(MAKE) -C config_server image
 # refractctl is a self-contained Go module (own go.mod, own Makefile) -
 # a plain static binary, installable anywhere with no runtime dependency.
 build-refractctl:
 	$(MAKE) -C refractctl build
+# Builds and `go install`s refractctl into $(go env GOPATH)/bin (put that on
+# your PATH to run it as plain `refractctl`).
+install-cli:
+	$(MAKE) -C refractctl install
 # Cross-compiles refractctl for macOS (arm64/amd64) and Linux (amd64/arm64)
 # into refractctl/dist/ - hand these to teammates directly, no Go toolchain
 # needed on their end.
@@ -56,5 +35,4 @@ build-refractctl-all:
 # Dockerfile. See scripts/integration-test.sh for why this exists.
 integration-test:
 	./scripts/integration-test.sh
-all: image
-up: all run
+all: image config-server-image build-refractctl

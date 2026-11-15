@@ -121,9 +121,9 @@ deployment.
 ## Building
 
 ```bash
-make all                        # gateway image
+make all                        # gateway + config server images + refractctl (default)
 make -C config_server image     # config server image
-make -C refractctl install      # install refractctl to $PATH
+make install-cli                # install refractctl to $PATH
 make build-refractctl-all       # cross-compile all platforms to refractctl/dist/
 ```
 
