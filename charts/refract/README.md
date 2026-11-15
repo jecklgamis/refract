@@ -15,6 +15,18 @@ helm install my-gw . \
   --set configSourceUrl=http://my-config-server:8090
 ```
 
+`default` is for local/dev only. For anything reachable beyond your machine,
+share one strong token between both charts through a Secret, the same one the
+config server chart was installed with (see its README):
+
+```bash
+helm install refract . \
+  --set configSourceUrl=http://refract-config-server:8090 \
+  --set configApiTokenExistingSecret.name=refract-api-token \
+  --set configApiTokenExistingSecret.key=token \
+  --set ingress.enabled=true   # off by default; needs an nginx + cert-manager setup
+```
+
 Or with `s3` mode, no config server needed:
 
 ```bash

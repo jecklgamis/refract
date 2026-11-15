@@ -8,10 +8,15 @@ directly) using its in-cluster address:
 
   http://{{ include "refract-config-server.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
 
-  # e.g. when installing the gateway chart in the same namespace:
-  helm install my-gateway refract/refract \
-    --set gateway.configSourceUrl=http://{{ include "refract-config-server.fullname" . }}:{{ .Values.service.port }} \
-    --set gateway.configApiToken=<same token as this release>
+  # e.g. when installing the gateway chart (charts/refract in the repo)
+  # into the same namespace:
+  helm install my-gateway charts/refract \
+    --set configSourceUrl=http://{{ include "refract-config-server.fullname" . }}:{{ .Values.service.port }} \
+    --set configApiToken=<same token as this release>
+
+  # ...or, if this release's token comes from an existing Secret, reuse it:
+  #   --set configApiTokenExistingSecret.name=<secret> \
+  #   --set configApiTokenExistingSecret.key=<key>
 
 To reach it from outside the cluster (e.g. to run refractctl push-http
 from your workstation):

@@ -10,6 +10,23 @@ the gateway itself, same as running `config_server`'s own
 helm install my-config-server . --set apiToken=default
 ```
 
+`default` is for local/dev only. If you enable the Ingress (it is off by
+default) the server is reachable from the internet and its token is the only
+thing protecting what your gateways route, so use a strong random token from a
+Secret instead:
+
+```bash
+kubectl create secret generic refract-api-token \
+  --from-literal=token="$(openssl rand -hex 32)"
+
+helm install refract-config-server . \
+  --set apiTokenExistingSecret.name=refract-api-token \
+  --set apiTokenExistingSecret.key=token \
+  --set ingress.enabled=true
+```
+
+Install the gateway chart with the same Secret (see its README).
+
 Then point a gateway at it - either the `refract` chart's
 `configSourceUrl`, or `refractctl config set http.server-url`
 directly - using its Service address,

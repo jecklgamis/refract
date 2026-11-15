@@ -691,6 +691,22 @@ helm install my-config-server . --set apiToken=default</code></pre>
 helm install my-gateway . \
   --set configApiToken=default \
   --set configSourceUrl=http://my-config-server:8090</code></pre>
+      <p><code>default</code> is for local/dev only. If you enable the Ingress, the config server is reachable from the internet and its token is the only thing protecting what your gateways route, so share one strong random token between both charts through a Secret:</p>
+<pre><code>kubectl create secret generic refract-api-token \
+  --from-literal=token="$(openssl rand -hex 32)"
+
+<span class="cmt"># config server</span>
+helm install refract-config-server charts/refract-config-server \
+  --set apiTokenExistingSecret.name=refract-api-token \
+  --set apiTokenExistingSecret.key=token \
+  --set ingress.enabled=true
+
+<span class="cmt"># gateway</span>
+helm install refract charts/refract \
+  --set configSourceUrl=http://refract-config-server:8090 \
+  --set configApiTokenExistingSecret.name=refract-api-token \
+  --set configApiTokenExistingSecret.key=token \
+  --set ingress.enabled=true</code></pre>
       <p>Or with S3 mode, skipping the config server chart entirely:</p>
 <pre><code>helm install my-gateway . \
   --set configSourceKind=s3 \
