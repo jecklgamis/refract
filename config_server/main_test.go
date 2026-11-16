@@ -25,7 +25,7 @@ func TestRootReturnsJSONBanner(t *testing.T) {
 	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", ct)
 	}
-	want := `{"app":"refract-config-server","message":"Relax, perf test it"}`
+	want := `{"app":"refract-config-server","message":"Relax, refract it"}`
 	if got := rec.Body.String(); got != want {
 		t.Errorf("body = %s, want %s", got, want)
 	}

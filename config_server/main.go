@@ -125,7 +125,7 @@ func handleConfig(w http.ResponseWriter, r *http.Request) {
 
 const (
 	appName     = "refract-config-server"
-	appMessage  = "Relax, perf test it"
+	appMessage  = "Relax, refract it"
 	rootPattern = "/"
 )
 

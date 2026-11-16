@@ -14,7 +14,7 @@ control plane. Three independent Go modules live in this repo:
 - `config_server/` - a small standalone HTTP service that stores
   uploaded CDS/LDS/runtime config (the `http` distribution mode).
   Endpoints: `GET /` (unauthenticated JSON banner,
-  `{"app":"refract-config-server","message":"Relax, perf test it"}`),
+  `{"app":"refract-config-server","message":"Relax, refract it"}`),
   `GET /healthz` (unauthenticated), and `GET`/`POST /config/<file>`
   (bearer token). Anything else is a 404.
 - `fetcher/` - a Go binary that runs *inside* the Envoy container
