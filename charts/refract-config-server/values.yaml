@@ -3,7 +3,7 @@
 image:
   repository: jecklgamis/refract-config-server
   tag: "main"
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 replicaCount: 1
 
