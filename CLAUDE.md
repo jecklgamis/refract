@@ -50,7 +50,7 @@ that component's image by default, and bare `make` in `refractctl/` builds the
 binary (neither is a help/usage printout).
 
 **Test** (refractctl has the bulk of the tests; `config_server` has a few for its
-endpoints, `fetcher/` and `app/` have none):
+endpoints, `app/` has a few for its root banner, `fetcher/` has none):
 ```bash
 cd config_server && go test ./...           # config_server's endpoint tests
 cd refractctl && go test ./...              # all packages

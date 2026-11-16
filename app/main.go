@@ -27,6 +27,20 @@ type response struct {
 	URL     string            `json:"url"`
 }
 
+const banner = `{"app":"refract","message":"Relax, refract it"}`
+
+// root serves the JSON banner for GET/HEAD on exactly "/", and echoes
+// everything else (other paths, other methods) so default_app's
+// catch-all behavior is unchanged.
+func root(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, banner)
+		return
+	}
+	echo(w, r)
+}
+
 func echo(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	body, _ := io.ReadAll(r.Body)
@@ -77,7 +91,7 @@ func main() {
 		port = p
 	}
 
-	http.HandleFunc("/", echo)
+	http.HandleFunc("/", root)
 	addr := "0.0.0.0:" + port
 	log.Printf("HTTP server listening on http://%s", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
